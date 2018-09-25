@@ -76,11 +76,11 @@ class Pod extends Point {
 
     isAnyoneGoingToHitMe(pods: Pod[]) {
         var myPod = this;
-        var hitting = pods.findIndex(pod => HelperMethods.getDistanceBetween(myPod, pod) < 1000);
+        var hitting = pods.findIndex(pod => HelperMethods.getDistanceAccountingForVelocity(myPod, pod) < 850);
         Debug.print({
             hit: hitting,
-            d1: HelperMethods.getDistanceBetween(myPod, podTracking.enemyPods[0]),
-            d2: HelperMethods.getDistanceBetween(myPod, podTracking.enemyPods[1])
+            d1: HelperMethods.getDistanceAccountingForVelocity(myPod, podTracking.enemyPods[0]),
+            d2: HelperMethods.getDistanceAccountingForVelocity(myPod, podTracking.enemyPods[1])
         });
         return hitting > -1;
     }
@@ -90,7 +90,7 @@ class Pod extends Point {
         var checkPoint = raceInfo.checkPoints[raceInfo.checkPointToDefend];
         var thrust = null;
         var distance = HelperMethods.getDistanceBetween(this, checkPoint);
-        var point = checkPoint;
+        var point = 'checkpoint';
 
         var podDistanceFromCheckPoint = HelperMethods.getDistanceBetween(pod, checkPoint);
 
@@ -100,21 +100,22 @@ class Pod extends Point {
             thrust = 100;
         }
 
-        if (podDistanceFromCheckPoint < 4000) {
-            this.moveToPoint(pod.positionX + Math.floor(pod.speedX * 1.5), pod.positionY + Math.floor(pod.speedY * 1.5), "BOOST");
+
+        if (podDistanceFromCheckPoint < 3000) {
+            point = 'pod';
         } else {
-            if (distance < 2500 && thrust !== 'SHIELD') {
-                thrust = 30
-            }
-            if (distance < 2000 && thrust !== 'SHIELD') {
-                thrust = 20;
-            }
-            if (distance < 400 && thrust !== 'SHIELD') {
+            point = 'checkpoint';
+            if (distance < 1500 && thrust !== 'SHIELD') {
                 thrust = 0;
-                point = pod;
+                point = 'pod';
             }
-            this.moveToPoint(point.positionX, point.positionY, thrust);
         }
+        if (point === 'pod') {
+            this.moveToPoint(pod.positionX + Math.floor(pod.speedX * 1.5), pod.positionY + Math.floor(pod.speedY * 1.5), thrust);
+        } else {
+            this.moveToPoint(checkPoint.positionX, checkPoint.positionY, thrust);
+        }
+
 
         if (raceInfo.checkPointToDefend === pod.nextCheckPointId) {
             var twoCheckPointsAheadIndex = pod.nextCheckPointId + 2;
@@ -163,12 +164,12 @@ class HelperMethods {
 
         if (podTracking.enemyPods[0].nextCheckPointId !== checkPointTracking.enemyPod0LastCheckPoint) {
             checkPointTracking.enemyPod0Danger++;
-            checkPointTracking.enemyPod0LastCheckPoint = checkPointTracking.enemyPod0LastCheckPoint;
+            checkPointTracking.enemyPod0LastCheckPoint = podTracking.enemyPods[0].nextCheckPointId;
         }
 
         if (podTracking.enemyPods[1].nextCheckPointId !== checkPointTracking.enemyPod1LastCheckPoint) {
             checkPointTracking.enemyPod1Danger++;
-            checkPointTracking.enemyPod1LastCheckPoint = checkPointTracking.enemyPod1LastCheckPoint;
+            checkPointTracking.enemyPod1LastCheckPoint = podTracking.enemyPods[1].nextCheckPointId;
         }
 
         return podTracking;
@@ -176,6 +177,12 @@ class HelperMethods {
     static getDistanceBetween(pod1: Point, pod2: Point) {
         var a = pod1.positionX - pod2.positionX;
         var b = pod1.positionY - pod2.positionY;
+        return Math.sqrt(a * a + b * b);
+    }
+
+    static getDistanceAccountingForVelocity(pod1: Pod, pod2: Pod) {
+        var a = (pod1.positionX + pod1.speedX) - (pod2.positionX + pod2.speedX);
+        var b = (pod1.positionY + pod1.speedY) - (pod2.positionY + pod2.speedY);
         return Math.sqrt(a * a + b * b);
     }
 
@@ -249,46 +256,24 @@ while (true) {
         rThrust = 'BOOST';
     }
 
-
-    if (!defender.hasTargetInFront(podTracking.enemyPods[1])) {
-        dThrust = 0;
+    var relative = HelperMethods.getRelativeAngle(racer, raceInfo.nextCheckPoint(racer));
+    if (relative === racer.angle) {
+        rThrust = 100;
     } else {
-        var nextCheckPoint = raceInfo.nextCheckPoint(racer);
-        var relative = HelperMethods.getRelativeAngle(racer, nextCheckPoint);
-        if (relative === racer.angle) {
-            rThrust = 100;
-        } else {
-            var difference = HelperMethods.getAngleDifference(relative, racer.angle);
-            rThrust = 100 - Math.floor(difference / 2);
-            Debug.print({
-                relative: relative,
-                racer: racer.angle,
-                diff: difference
-            });
-        }
+        var difference = HelperMethods.getAngleDifference(relative, racer.angle);
+        rThrust = 100 - Math.floor(difference / 1.2);
     }
 
-    var distance = Math.floor(HelperMethods.getDistanceBetween(defender, podTracking.enemyPods[1]));
-    var futurePod = new Point((racer.positionX + racer.speedX).toString(), (racer.positionY + racer.positionY).toString());
-    var predictedDistance = HelperMethods.getDistanceBetween(racer, raceInfo.checkPoints[1]);
-    Debug.print({distance:predictedDistance});
-    
-    if (predictedDistance < 600) {
-        Debug.print('moving ahead');
-        var checkPointAheadIndex = (racer.nextCheckPointId + 1 > raceInfo.checkPoints.length ? 0 :racer.nextCheckPointId + 1);
-        var checkPointAhead = raceInfo.checkPoints[checkPointAheadIndex];
 
-        var relative = HelperMethods.getRelativeAngle(racer, checkPointAhead);
-        if (relative === racer.angle) {
-            rThrust = 100;
-        } else {
-            var difference = HelperMethods.getAngleDifference(relative, racer.angle);
-            rThrust = 100 - Math.floor(difference / 2);
-        }
-
-        racer.moveToPoint(checkPointAhead.positionX, checkPointAhead.positionY, rThrust);
-    } else {
+    if (racer.isAnyoneGoingToHitMe([...podTracking.enemyPods, defender])) {
+        racer.moveToPoint(raceInfo.nextCheckPoint(racer).positionX, raceInfo.nextCheckPoint(racer).positionY, "SHIELD");
+    }else{
         racer.moveToPoint(raceInfo.nextCheckPoint(racer).positionX, raceInfo.nextCheckPoint(racer).positionY, rThrust);
+    }
+
+    var enemyPod = podTracking.enemyPods[checkPointTracking.getMostDangerous()];
+    if (!defender.hasTargetInFront(enemyPod)) {
+        dThrust = 0;
     }
 
     defender.defendCheckPointFrom(podTracking.enemyPods[checkPointTracking.getMostDangerous()]);
