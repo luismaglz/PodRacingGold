@@ -125,7 +125,9 @@ class Pod extends Point {
         if (point === 'pod') {
             var relative = HelperMethods.getRelativeAngle(this, pod);
             var difference = HelperMethods.getAngleDifference(relative, this.angle);
-            thrust = 100 - Math.floor(difference / 2);
+            if (thrust != 'SHIELD') {
+                thrust = 100 - Math.floor(difference / 2);
+            }
             this.moveToPoint(pod.positionX + Math.floor(pod.speedX * 3.5), pod.positionY + Math.floor(pod.speedY * 3.5), thrust);
         }
         else {
@@ -135,7 +137,7 @@ class Pod extends Point {
             if (distance < 2000 && thrust !== 'SHIELD') {
                 thrust = 0;
             }
-            else {
+            else if (thrust !== 'SHIELD') {
                 thrust = 100 - Math.floor(difference / 2);
             }
             this.moveToPoint(checkPoint.positionX + offSetX, checkPoint.positionY + offSetY, thrust);
@@ -288,16 +290,25 @@ while (true) {
     var allowed = racer.getAllowedAngleForPredicting(raceInfo.nextCheckPoint(racer));
     var difAngle = HelperMethods.getAngleDifference(relative, racer.angle);
     var distance = HelperMethods.getDistanceBetween(racer, raceInfo.nextCheckPoint(racer));
+    // if (allowed < difAngle) {
+    //     rThrust = 100;
+    // } else {
+    //     if (distance < 3000) {
+    //         var angleToNext = 180 - racer.getAngleToNextCheckPoint()
+    //         rThrust = 100 - Math.floor(angleToNext / 8);
+    //         if (rThrust < 1) {
+    //             rThrust = 10;
+    //         }
+    //     }
+    // }
     if (allowed < difAngle) {
         rThrust = 100;
     }
     else {
-        if (distance < 3000) {
-            var angleToNext = 180 - racer.getAngleToNextCheckPoint();
-            rThrust = 100 - Math.floor(angleToNext / 5);
-            if (rThrust < 1) {
-                rThrust = 10;
-            }
+        var difference = HelperMethods.getAngleDifference(relative, racer.angle);
+        rThrust = 100 - Math.floor(difference / 2);
+        if (distance < 2000 && racer.getAngleToNextCheckPoint() < 90) {
+            rThrust = racer.getAngleToNextCheckPoint();
         }
     }
     if (raceInfo.frames === 1) {
@@ -308,7 +319,14 @@ while (true) {
         raceInfo.shieldTimeout = 20;
     }
     else {
-        racer.moveToPoint(raceInfo.nextCheckPoint(racer).positionX - racer.speedX, raceInfo.nextCheckPoint(racer).positionY - racer.speedY, rThrust);
+        var nextPoint = raceInfo.checkPoints[HelperMethods.getCheckPointsAhead(racer.nextCheckPointId, 1)];
+        var future = new Point((raceInfo.nextCheckPoint(racer).positionX - racer.speedX).toString(), (raceInfo.nextCheckPoint(racer).positionY - racer.speedY).toString());
+        if (HelperMethods.getDistanceBetween(future, raceInfo.nextCheckPoint(racer)) < 600) {
+            racer.moveToPoint(future.positionX - racer.speedX, future.positionY - racer.speedY, rThrust);
+        }
+        else {
+            racer.moveToPoint(raceInfo.nextCheckPoint(racer).positionX - racer.speedX, raceInfo.nextCheckPoint(racer).positionY - racer.speedY, rThrust);
+        }
     }
     var enemyPod = podTracking.enemyPods[checkPointTracking.getMostDangerous()];
     if (!defender.hasTargetInFront(enemyPod)) {
