@@ -54,6 +54,7 @@ class Pod extends Point {
         return print(`${x} ${y} ${thrust}`);
     }
     hasTargetInFront(target) {
+        Debug.print("hasTargetInFront");
         var targetAngle = HelperMethods.getRelativeAngle(this, target) + 360;
         var anglediff = (this.angle - targetAngle + 180 + 360) % 360 - 180;
         return (anglediff <= this.boundDelta && anglediff >= -this.boundDelta);
@@ -66,6 +67,7 @@ class Pod extends Point {
     }
     hasTargetInRange(target) {
         var delta = this.getAllowedAngleForPredicting(target);
+        Debug.print("hasTargetInRange");
         var targetAngle = HelperMethods.getRelativeAngle(this, target) + 360;
         var anglediff = (this.angle - targetAngle + 180 + 360) % 360 - 180;
         return (anglediff <= delta && anglediff >= -delta);
@@ -94,25 +96,49 @@ class Pod extends Point {
         var thrust = 100;
         var distance = HelperMethods.getDistanceBetween(this, checkPoint);
         var point = 'checkpoint';
-        var podDistanceFromCheckPoint = HelperMethods.getDistanceBetween(pod, checkPoint);
+        var checkPointBeforeCheckPoint = raceInfo.checkPoints[HelperMethods.getCheckPointsAhead(raceInfo.checkPointToDefend, -1)];
+        var rel = HelperMethods.getRelativeAngle(checkPoint, checkPointBeforeCheckPoint);
+        var offSetX = 600;
+        var offSetY = 600;
+        if (91 <= rel && rel <= 180) {
+            offSetX = offSetX * -1;
+        }
+        else if (181 <= rel && rel <= 270) {
+            offSetX = offSetX * -1;
+            offSetY = offSetY * -1;
+        }
+        else if (271 <= rel && rel <= 369) {
+            offSetY = offSetY * -1;
+        }
         if (this.isAnyoneGoingToHitMe([...podTracking.enemyPods])) {
             thrust = 'SHIELD';
         }
-        if (podDistanceFromCheckPoint < 2500) {
+        if (pod.nextCheckPointId === raceInfo.checkPointToDefend) {
             point = 'pod';
         }
         else {
             point = 'checkpoint';
-            if (distance < 1500 && thrust !== 'SHIELD') {
-                thrust = 0;
+            if (distance < 2000 && thrust !== 'SHIELD') {
                 point = 'pod';
             }
         }
         if (point === 'pod') {
-            this.moveToPoint(pod.positionX + Math.floor(pod.speedX * 1.5), pod.positionY + Math.floor(pod.speedY * 1.5), thrust);
+            var relative = HelperMethods.getRelativeAngle(this, pod);
+            var difference = HelperMethods.getAngleDifference(relative, this.angle);
+            thrust = 100 - Math.floor(difference / 2);
+            this.moveToPoint(pod.positionX + Math.floor(pod.speedX * 3.5), pod.positionY + Math.floor(pod.speedY * 3.5), thrust);
         }
         else {
-            this.moveToPoint(checkPoint.positionX, checkPoint.positionY, thrust);
+            var offSetPoint = new Point((checkPoint.positionX + offSetX).toString(), (checkPoint.positionY + offSetY).toString());
+            var relative = HelperMethods.getRelativeAngle(this, offSetPoint);
+            var difference = HelperMethods.getAngleDifference(relative, this.angle);
+            if (distance < 2000 && thrust !== 'SHIELD') {
+                thrust = 0;
+            }
+            else {
+                thrust = 100 - Math.floor(difference / 2);
+            }
+            this.moveToPoint(checkPoint.positionX + offSetX, checkPoint.positionY + offSetY, thrust);
         }
         var oneCheckPointAhead = pod.nextCheckPointId + 1;
         if (oneCheckPointAhead > raceInfo.checkPoints.length - 1) {
@@ -212,6 +238,9 @@ class HelperMethods {
         return Math.floor(targetAngle);
     }
     static getCheckPointsAhead(checkPointId, n) {
+        if (n < 0) {
+            n = raceInfo.checkPoints.length - n;
+        }
         var cpAhead = checkPointId + n;
         if (cpAhead > raceInfo.checkPoints.length - 1) {
             return cpAhead % (raceInfo.checkPoints.length - 1);
@@ -254,6 +283,7 @@ while (true) {
     if (!racer.hasTargetInFront(raceInfo.nextCheckPoint(racer))) {
         rThrust = 0;
     }
+    Debug.print("while");
     var relative = HelperMethods.getRelativeAngle(racer, raceInfo.nextCheckPoint(racer));
     var allowed = racer.getAllowedAngleForPredicting(raceInfo.nextCheckPoint(racer));
     var difAngle = HelperMethods.getAngleDifference(relative, racer.angle);
